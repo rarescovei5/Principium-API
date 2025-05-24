@@ -1,9 +1,4 @@
-const allowedOrigins = [
-  'http://localhost:5173',
-  'vscode-webview-resource://*',
-  'vscode-webview://*',
-  process.env.FRONTEND_PATH,
-];
+const allowedOrigins = [process.env.FRONTEND_PATH];
 const corsOptions = {
   origin: (origin: any, callback: any) => {
     console.log(origin);
@@ -11,10 +6,10 @@ const corsOptions = {
       return callback(null, true);
     }
 
-    if (
-      origin.startsWith('vscode-webview-resource://') ||
-      origin.startsWith('vscode-webview://')
-    ) {
+    if (origin.startsWith('http://localhost:')) return callback(null, true);
+
+    // For vscode snippets extension
+    if (origin.startsWith('vscode-webview-resource://') || origin.startsWith('vscode-webview://')) {
       return callback(null, true);
     }
 

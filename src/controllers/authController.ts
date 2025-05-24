@@ -1,122 +1,122 @@
-import crypto from 'crypto';
 import express from 'express';
+import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import pool from '../model/db';
-import { User } from '../model/User';
 
-const testPassword = (password: string) => {
+const testPassword = (password: string): string => {
   if (password.length < 8) {
     return 'Password must be at least 8 characters';
-  } else if (password.length > 24) {
-    return 'Password must be less than 24 characters';
-  } else if (!/(?=.*[a-z])/.test(password)) {
+  } else if (password.length > 50) {
+    return 'Password must be less than 50 characters';
+  } else if (!/[a-z]/.test(password)) {
     return 'Password must contain at least one lowercase letter';
-  } else if (!/(?=.*[A-Z])/.test(password)) {
+  } else if (!/[A-Z]/.test(password)) {
     return 'Password must contain at least one uppercase letter';
-  } else if (!/(?=.*\d)/.test(password)) {
+  } else if (!/\d/.test(password)) {
     return 'Password must contain at least one number';
   }
   return '';
 };
-const handleRegisterUser = async (
-  req: express.Request,
-  res: express.Response
-) => {
-  const q =
-    'INSERT INTO `users` (`username`, `email`, `password_hash`) VALUES (?);';
-  const password = req.body.password;
 
-  const passTestRes = testPassword(password);
-  if (passTestRes.length !== 0) {
-    res.status(500).json({ error: passTestRes });
-    return;
+const handleRegisterUser = async (req: express.Request, res: express.Response) => {
+  const { firstName, lastName, email, password } = req.body;
+  if (!(firstName && lastName && email && password)) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  // Test Password
+  const pwdErr = testPassword(password);
+  if (pwdErr) {
+    return res.status(400).json({ error: pwdErr });
   }
 
   try {
-    const values = [
-      req.body.username,
-      req.body.email,
-      crypto.createHash('sha256').update(password).digest('hex'),
-    ];
-    await pool.query(q, [values]);
-    res.status(200).send({ error: 'No Error' });
-  } catch (error: any) {
-    if (error.code === 'ER_DUP_ENTRY') {
-      let message: any = error.message.split(' ');
-      message = message[message.length - 1].replace(/'/g, '');
+    const passwordHash = await bcrypt.hash(password, 12);
 
-      if (message == 'users.email') {
-        res.status(500).send({ error: 'Email already registered' });
-        return;
-      } else if (message == 'users.username') {
-        res.status(500).send({ error: 'Username taken' });
-        return;
-      } else {
-        res.status(500).send({ error });
-        return;
+    const sql = `
+      INSERT INTO \`users\`
+        (\`first_name\`, \`last_name\`, \`email\`, \`password_hash\`)
+      VALUES (?,?,?,?)
+    `;
+    await pool.query(sql, [firstName, lastName, email, passwordHash]);
+
+    return res.status(201).json({ error: null });
+  } catch (err: any) {
+    // Handle duplicates
+    if (err.code === 'ER_DUP_ENTRY') {
+      if (err.sqlMessage.includes('users.email')) {
+        return res.status(409).json({ error: 'Email already registered' });
       }
-    } else {
-      res.status(500).send({ error });
-      return;
+      // I deleted it from db but will add back
+      if (err.sqlMessage.includes('users.username')) {
+        return res.status(409).json({ error: 'Username taken' });
+      }
     }
+
+    // Idk any other errors
+    console.error('Registration error:', err);
+    return res.status(500).json({ error: 'Server error during registration' });
   }
 };
-const handleLoginUser = async (req: express.Request, res: express.Response) => {
-  const q = 'SELECT * FROM `users` WHERE `email`=? AND `password_hash`=?';
-  const values = [
-    req.body.email,
-    crypto.createHash('sha256').update(req.body.password).digest('hex'),
-  ];
-  try {
-    const [d] = await pool.query(q, values);
-    const data = d as User[];
 
-    if (!process.env.ACCESS_TOKEN_SECRET || !process.env.REFRESH_TOKEN_SECRET) {
-      res.status(500).send({ error: 'Server error while logging in' });
-      return;
+const handleLoginUser = async (req: express.Request, res: express.Response) => {
+  const { email, password } = req.body;
+  if (!(email && password)) {
+    return res.status(400).json({ error: 'Email and password are required' });
+  }
+
+  try {
+    const sqlSelect = `
+      SELECT \`id\`, \`password_hash\`
+      FROM \`users\`
+      WHERE \`email\` = ?
+    `;
+    const [rows] = await pool.query(sqlSelect, [email]);
+    const users = rows as { id: number; password_hash: string }[];
+
+    if (users.length === 0) {
+      // no such email
+      return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    if (data.length > 0) {
-      const user_id = data[0].id;
+    const { id: userId, password_hash: storedHash } = users[0];
 
-      // Create tokens
-      const accessToken = jwt.sign(
-        { user_id },
-        process.env.ACCESS_TOKEN_SECRET,
-        { expiresIn: '5m' }
-      );
-      const refreshToken = jwt.sign(
-        { user_id },
-        process.env.REFRESH_TOKEN_SECRET,
-        { expiresIn: '1d' }
-      );
+    const match = await bcrypt.compare(password, storedHash);
+    if (!match) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
 
-      // Save Access Token
-      const q = 'UPDATE `users` SET `refresh_token`=? WHERE `id`=?';
+    const { ACCESS_TOKEN_SECRET, REFRESH_TOKEN_SECRET } = process.env;
 
-      await pool.query(q, [refreshToken, user_id]);
+    // Sign tokens
+    const accessToken = jwt.sign({ userId }, ACCESS_TOKEN_SECRET!, {
+      expiresIn: '5m',
+    });
+    const refreshToken = jwt.sign({ userId }, REFRESH_TOKEN_SECRET!, {
+      expiresIn: '1d',
+    });
 
-      res.cookie('jwt', refreshToken, {
+    //  Persist refresh token
+    const sqlUpdate = 'UPDATE `users` SET `refresh_token` = ? WHERE `id` = ?';
+    await pool.query(sqlUpdate, [refreshToken, userId]);
+
+    // Send cookie + JSON
+    res
+      .cookie('jwt', refreshToken, {
         httpOnly: true,
         sameSite: 'none',
         secure: true,
         maxAge: 24 * 60 * 60 * 1000,
-      });
-      res.status(200).send({ accessToken, error: 'No Error' });
-      return;
-    } else {
-      res.status(401).send({ error: 'Invalid credentials' });
-      return;
-    }
+      })
+      .status(200)
+      .json({ accessToken, error: null });
   } catch (err) {
-    res.status(500).send({ error: err });
-    return;
+    console.error('Login error:', err);
+    return res.status(500).json({ error: 'Server error while logging in' });
   }
 };
-const handleLogoutUser = async (
-  req: express.Request,
-  res: express.Response
-) => {
+
+const handleLogoutUser = async (req: express.Request, res: express.Response) => {
   const q = 'UPDATE `users` SET `refresh_token`=NULL WHERE `refresh_token`=?';
   const cookies = req.cookies;
 
@@ -140,10 +140,7 @@ const handleLogoutUser = async (
     return;
   }
 };
-const handleRefreshToken = async (
-  req: express.Request,
-  res: express.Response
-) => {
+const handleRefreshToken = async (req: express.Request, res: express.Response) => {
   const cookies = req.cookies;
 
   if (!cookies?.jwt) {
@@ -163,33 +160,20 @@ const handleRefreshToken = async (
 
     const user_id = (data as any)[0].id;
 
-    jwt.verify(
-      refreshToken,
-      process.env.REFRESH_TOKEN_SECRET!,
-      (err: any, decoded: any) => {
-        if (err || user_id !== (decoded as any).user_id) {
-          res.sendStatus(403);
-          return;
-        }
-
-        const accessToken = jwt.sign(
-          { user_id },
-          process.env.ACCESS_TOKEN_SECRET!,
-          { expiresIn: '5m' }
-        );
-
-        res.status(200).send({ accessToken, error: 'No Error' });
+    jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET!, (err: any, decoded: any) => {
+      if (err || user_id !== (decoded as any).user_id) {
+        res.sendStatus(403);
+        return;
       }
-    );
+
+      const accessToken = jwt.sign({ user_id }, process.env.ACCESS_TOKEN_SECRET!, { expiresIn: '5m' });
+
+      res.status(200).send({ accessToken, error: 'No Error' });
+    });
   } catch (err) {
     res.sendStatus(403);
     return;
   }
 };
 
-export {
-  handleRegisterUser,
-  handleRefreshToken,
-  handleLoginUser,
-  handleLogoutUser,
-};
+export { handleRegisterUser, handleRefreshToken, handleLoginUser, handleLogoutUser };

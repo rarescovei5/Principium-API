@@ -3,7 +3,8 @@ USE `principium`;
 
 CREATE TABLE `users` (
     `id`            CHAR(36) PRIMARY KEY DEFAULT (UUID()), 
-    `username`      VARCHAR(50) UNIQUE NOT NULL,
+    `first_name`    VARCHAR(50)  NOT NULL,
+    `last_name`     VARCHAR(50)  NOT NULL,
     `email`         VARCHAR(100) UNIQUE NOT NULL,
     `password_hash` VARCHAR(255) NOT NULL,
     `avatar_url`    VARCHAR(255),
@@ -21,7 +22,7 @@ CREATE TABLE `code_snippets` (
     `created_at`  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     `updated_at`  TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
-    FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+    FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
 
     INDEX `idx_language` (`language`)
 );
