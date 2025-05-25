@@ -22,7 +22,7 @@ export const verifyJWT = (req: AuthenticatedRequest, res: express.Response, next
       return;
     }
 
-    req.user = { id: (decoded as any).user_id };
+    req.user = { id: (decoded as any).user.id };
 
     next();
   });

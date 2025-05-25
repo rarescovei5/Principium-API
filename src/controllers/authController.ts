@@ -21,13 +21,15 @@ const testPassword = (password: string): string => {
 const handleRegisterUser = async (req: express.Request, res: express.Response) => {
   const { firstName, lastName, email, password } = req.body;
   if (!(firstName && lastName && email && password)) {
-    return res.status(400).json({ error: 'Missing required fields' });
+    res.status(400).json({ error: 'Missing required fields' });
+    return;
   }
 
   // Test Password
   const pwdErr = testPassword(password);
   if (pwdErr) {
-    return res.status(400).json({ error: pwdErr });
+    res.status(400).json({ error: pwdErr });
+    return;
   }
 
   try {
@@ -40,29 +42,34 @@ const handleRegisterUser = async (req: express.Request, res: express.Response) =
     `;
     await pool.query(sql, [firstName, lastName, email, passwordHash]);
 
-    return res.status(201).json({ error: null });
+    res.status(201).json({ error: null });
+    return;
   } catch (err: any) {
     // Handle duplicates
     if (err.code === 'ER_DUP_ENTRY') {
       if (err.sqlMessage.includes('users.email')) {
-        return res.status(409).json({ error: 'Email already registered' });
+        res.status(409).json({ error: 'Email already registered' });
+        return;
       }
       // I deleted it from db but will add back
       if (err.sqlMessage.includes('users.username')) {
-        return res.status(409).json({ error: 'Username taken' });
+        res.status(409).json({ error: 'Username taken' });
+        return;
       }
     }
 
     // Idk any other errors
     console.error('Registration error:', err);
-    return res.status(500).json({ error: 'Server error during registration' });
+    res.status(500).json({ error: 'Server error during registration' });
+    return;
   }
 };
 
 const handleLoginUser = async (req: express.Request, res: express.Response) => {
   const { email, password } = req.body;
   if (!(email && password)) {
-    return res.status(400).json({ error: 'Email and password are required' });
+    res.status(400).json({ error: 'Email and password are required' });
+    return;
   }
 
   try {
@@ -76,23 +83,25 @@ const handleLoginUser = async (req: express.Request, res: express.Response) => {
 
     if (users.length === 0) {
       // no such email
-      return res.status(401).json({ error: 'Invalid credentials' });
+      res.status(401).json({ error: 'Invalid credentials' });
+      return;
     }
 
     const { id: userId, password_hash: storedHash } = users[0];
 
     const match = await bcrypt.compare(password, storedHash);
     if (!match) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      res.status(401).json({ error: 'Invalid credentials' });
+      return;
     }
 
     const { ACCESS_TOKEN_SECRET, REFRESH_TOKEN_SECRET } = process.env;
 
     // Sign tokens
-    const accessToken = jwt.sign({ userId }, ACCESS_TOKEN_SECRET!, {
+    const accessToken = jwt.sign({ user: { id: userId } }, ACCESS_TOKEN_SECRET!, {
       expiresIn: '5m',
     });
-    const refreshToken = jwt.sign({ userId }, REFRESH_TOKEN_SECRET!, {
+    const refreshToken = jwt.sign({ user: { id: userId } }, REFRESH_TOKEN_SECRET!, {
       expiresIn: '1d',
     });
 
@@ -112,10 +121,10 @@ const handleLoginUser = async (req: express.Request, res: express.Response) => {
       .json({ accessToken, error: null });
   } catch (err) {
     console.error('Login error:', err);
-    return res.status(500).json({ error: 'Server error while logging in' });
+    res.status(500).json({ error: 'Server error while logging in' });
+    return;
   }
 };
-
 const handleLogoutUser = async (req: express.Request, res: express.Response) => {
   const q = 'UPDATE `users` SET `refresh_token`=NULL WHERE `refresh_token`=?';
   const cookies = req.cookies;
@@ -161,12 +170,14 @@ const handleRefreshToken = async (req: express.Request, res: express.Response) =
     const user_id = (data as any)[0].id;
 
     jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET!, (err: any, decoded: any) => {
-      if (err || user_id !== (decoded as any).user_id) {
+      const decoded_id = decoded.user.id;
+      if (err || user_id !== decoded_id) {
+        console.log(user_id, decoded_id, refreshToken);
         res.sendStatus(403);
         return;
       }
 
-      const accessToken = jwt.sign({ user_id }, process.env.ACCESS_TOKEN_SECRET!, { expiresIn: '5m' });
+      const accessToken = jwt.sign({ user: { id: decoded_id } }, process.env.ACCESS_TOKEN_SECRET!, { expiresIn: '5m' });
 
       res.status(200).send({ accessToken, error: 'No Error' });
     });
