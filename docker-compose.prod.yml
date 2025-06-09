@@ -1,0 +1,30 @@
+services:
+  backend:
+    container_name: principium-backend-prod
+    build:
+      context: ./actix-backend
+      dockerfile: Dockerfile.prod
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env.dev
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: postgres:17
+    container_name: principium-db-prod
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: principium
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    ports:
+      - "5434:5432"
+
+volumes:
+  pgdata:
