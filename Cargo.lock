@@ -1972,6 +1972,7 @@ dependencies = [
  "jsonwebtoken",
  "log",
  "serde",
+ "serde_json",
  "sqlx",
  "uuid",
 ]
@@ -2426,6 +2427,7 @@ dependencies = [
  "thiserror",
  "tracing",
  "url",
+ "uuid",
 ]
 
 [[package]]
@@ -2505,6 +2507,7 @@ dependencies = [
  "stringprep",
  "thiserror",
  "tracing",
+ "uuid",
  "whoami",
 ]
 
@@ -2542,6 +2545,7 @@ dependencies = [
  "stringprep",
  "thiserror",
  "tracing",
+ "uuid",
  "whoami",
 ]
 
@@ -2567,6 +2571,7 @@ dependencies = [
  "thiserror",
  "tracing",
  "url",
+ "uuid",
 ]
 
 [[package]]

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
@@ -8,5 +9,5 @@ pub struct Claims {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UserData {
-    pub id: String,
+    pub id: Uuid,
 }
