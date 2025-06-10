@@ -7,7 +7,7 @@ pub struct Claims {
     pub exp: usize, // Expiration timestamp
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UserData {
     pub id: Uuid,
 }
