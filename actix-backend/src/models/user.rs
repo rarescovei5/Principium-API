@@ -40,6 +40,7 @@ pub struct UserLoginRequest {
 pub struct UserSession {
     pub id: Uuid,
     pub user_id: Uuid,
+    pub device_id: String,
     pub refresh_token: String,
     pub user_agent: Option<String>,
     pub ip_address: Option<String>,

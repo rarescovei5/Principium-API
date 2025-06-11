@@ -32,16 +32,19 @@ CREATE TABLE users (
 CREATE TABLE user_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  device_id TEXT NOT NULL,
   refresh_token TEXT NOT NULL,
   user_agent TEXT,
   ip_address TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   last_used_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  revoked BOOLEAN NOT NULL DEFAULT FALSE
+  revoked BOOLEAN NOT NULL DEFAULT FALSE,
+  UNIQUE (user_id, device_id)
 );
 
 CREATE INDEX idx_user_sessions_user_id ON user_sessions(user_id);
 CREATE INDEX idx_user_sessions_token ON user_sessions(refresh_token);
+CREATE UNIQUE INDEX uniq_user_sessions_user_device ON user_sessions(user_id, device_id);
 
 
 
