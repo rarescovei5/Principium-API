@@ -1,7 +1,7 @@
 use actix_web::{middleware::Logger, web::{self, Data}, App, HttpServer};
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 
-use crate::middleware::jwt_middleware::VerifyJWT;
+// use crate::middleware::jwt_middleware::VerifyJWT;
 
 mod models;
 mod routes;
@@ -15,26 +15,26 @@ pub struct AppState {
     jwt_refresh_secret: String,
 }
 
+/// Main entry point for the Actix web server application.
+/// Sets up logging, environment variables, database connection pool, and starts the HTTP server.
+/// Shares app state including database pool and JWT secrets across routes.
 #[actix_web::main]
 async fn main () -> std::io::Result<()> {
-    // For some reason it errors if it's not in an unsafe block
+    // Enable Actix Web debug logs and full backtraces for better debugging
     unsafe { 
-        // Enable Actix Web debug logs (e.g., incoming requests, responses, etc.)
         std::env::set_var("RUST_LOG", "debug");
-        // Enable full backtraces for better debugging on panics
-        std::env::set_var("RUST_BACKTRACE", "full");
+        std::env::set_var("RUST_BACKTRACE", "1");
     }
 
-    // Initialize the environment logger (reads from RUST_LOG)
+    // Initialize the environment logger
     env_logger::init();
 
-    // Load environment variables from the .env file
-    // Required variables: PORT, ADDRESS, DATABASE_URL, JWT_ACCESS_SECRET, JWT_REFRESH_SECRET
-    dotenv::from_filename(".env.dev")
+    // Load environment variables from .env file
+    dotenv::from_filename(".env.local")
         .or_else(|_| dotenv::dotenv())
         .ok();
 
-    // Read the DATABASE_URL and establish a PostgreSQL connection pool
+    // Establish a PostgreSQL connection pool
     let database_url =  std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let pool = PgPoolOptions::new()
         .max_connections(5)
@@ -42,7 +42,7 @@ async fn main () -> std::io::Result<()> {
         .await
         .expect("Error building a connection pool");
 
-     // Read the server address and port from environment variables
+    // Read server address and port from environment variables
     let port = std::env::var("PORT").unwrap().parse::<u16>().unwrap();
     let host = std::env::var("HOST").unwrap();
 
@@ -56,9 +56,6 @@ async fn main () -> std::io::Result<()> {
         jwt_refresh_secret: jwt_refresh_secret.clone(),
     });
 
-    // Create the jwt_mw to be available for cloning wherever needed
-    let jwt_mw = VerifyJWT::new(app_data.clone());
-
     // Start the Actix Web server
     HttpServer::new(move || {
         App::new()
@@ -69,7 +66,7 @@ async fn main () -> std::io::Result<()> {
                     .configure(routes::auth_routes::config) 
             ) 
     })
-    .bind((host, port))?  // Bind the server to the specified address and port (e.g., 127.0.0.1:8080)
-    .run() // Run the server asynchronously (similar to how Express works in Node.js)
+    .bind((host, port))?  // Bind the server to the specified address and port
+    .run() // Run the server asynchronously
     .await
 }

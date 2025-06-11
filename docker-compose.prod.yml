@@ -5,9 +5,9 @@ services:
       context: ./actix-backend
       dockerfile: Dockerfile.prod
     ports:
-      - "8080:8080"
+      - '8080:8080'
     env_file:
-      - .env.dev
+      - ./actix-backend/.env.dev
     depends_on:
       - db
     restart: unless-stopped
@@ -24,7 +24,7 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
     ports:
-      - "5434:5432"
+      - '5434:5432'
 
 volumes:
   pgdata:

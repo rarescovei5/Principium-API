@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE users SET refresh_token = NULL WHERE refresh_token = $1",
+  "query": "UPDATE user_sessions SET revoked = TRUE WHERE refresh_token = $1",
   "describe": {
     "columns": [],
     "parameters": {
@@ -10,5 +10,5 @@
     },
     "nullable": []
   },
-  "hash": "44df39fe71193237e23215c16a8110e5ff1ab2dfae51c7449af81a80ef660bc5"
+  "hash": "96b0a6480b991bf6c59f32c92c7de18e216f540d13abdd3e64e69fe12f8a3e3c"
 }
