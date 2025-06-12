@@ -1,3 +1,5 @@
+// Models contain structs meant to be used with query as, as well as request bodies for post routes
+
 // Users
 mod user;
 pub use user::{

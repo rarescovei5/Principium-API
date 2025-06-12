@@ -1,40 +1,42 @@
 use actix_web::{middleware::Logger, web::{self, Data}, App, HttpServer};
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 
+
+mod handlers;
+mod models;
+mod utils;
+
+mod middleware;
+mod routes;
+
 // use crate::middleware::jwt_middleware::VerifyJWT;
 
-mod models;
-mod routes;
-mod utils;
-mod middleware;
 
-// Shared application state containing the database connection pool
 pub struct AppState {
     db: Pool<Postgres>,
     jwt_access_secret: String,
     jwt_refresh_secret: String,
 }
 
-/// Main entry point for the Actix web server application.
-/// Sets up logging, environment variables, database connection pool, and starts the HTTP server.
-/// Shares app state including database pool and JWT secrets across routes.
 #[actix_web::main]
 async fn main () -> std::io::Result<()> {
-    // Enable Actix Web debug logs and full backtraces for better debugging
+    // Enable Actix Web debug logs and backtraces for better debugging
     unsafe { 
         std::env::set_var("RUST_LOG", "debug");
         std::env::set_var("RUST_BACKTRACE", "1");
     }
-
-    // Initialize the environment logger
+    
     env_logger::init();
 
-    // Load environment variables from .env file
+    // This project is setup such there is a .env.dev .env.local
+    // The only difference is that the .env.dev has a different host and port for the db (db:5433)
     dotenv::from_filename(".env.local")
         .or_else(|_| dotenv::dotenv())
         .ok();
 
     // Establish a PostgreSQL connection pool
+    // Since were using PosgresSQL proc macros for handlers, there is also a .env with the localhost version of the DATABASE_URL
+    // If you don't have the schema setup, your editor will have more errors than code
     let database_url =  std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let pool = PgPoolOptions::new()
         .max_connections(5)
@@ -42,7 +44,7 @@ async fn main () -> std::io::Result<()> {
         .await
         .expect("Error building a connection pool");
 
-    // Read server address and port from environment variables
+    // Read the rest of env vars
     let port = std::env::var("PORT").unwrap().parse::<u16>().unwrap();
     let host = std::env::var("HOST").unwrap();
 
@@ -66,7 +68,7 @@ async fn main () -> std::io::Result<()> {
                     .configure(routes::auth_routes::config) 
             ) 
     })
-    .bind((host, port))?  // Bind the server to the specified address and port
-    .run() // Run the server asynchronously
+    .bind((host, port))? // Ex: This is telling the server to listen at 127.0.0.1:8080
+    .run()
     .await
 }

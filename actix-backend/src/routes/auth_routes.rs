@@ -1,6 +1,6 @@
 use actix_web::web;
 
-use crate::routes::handlers;
+use crate::handlers;
 
 pub fn config(config: &mut web::ServiceConfig) {
     config.service(
