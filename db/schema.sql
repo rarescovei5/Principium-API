@@ -86,6 +86,7 @@ CREATE TRIGGER trg_snippets_updated_at
   BEFORE UPDATE ON snippets_extension.snippets
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+CREATE INDEX idx_snippets_language ON snippets_extension.snippets(language);
 CREATE INDEX idx_snippets_owner ON snippets_extension.snippets(owner_id);
 CREATE INDEX idx_snippets_fulltext ON snippets_extension.snippets USING GIN(code_tsv);
 

@@ -1,6 +1,4 @@
-// Models module: re-exports user and claims related structs and types.
-// This helps keep the code organized and easy to import from one place.
-
+// Users
 mod user;
 pub use user::{
     User, UserSession, Subscription, 
@@ -9,3 +7,10 @@ pub use user::{
 
 mod claims;
 pub use claims::{Claims,UserData};
+
+// Snippets
+pub mod snippets;
+pub use snippets::{
+    Snippet, SnippetStar, SnippetTag
+};
+
