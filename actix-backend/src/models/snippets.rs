@@ -12,9 +12,13 @@ pub struct Snippet {
     pub description: Option<String>,
     pub code: String,
     pub language: String,
-    pub is_public: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug,Deserialize)]
+pub struct CreateSnippetRequest {
+    pub title: String,
 }
 
 // ______________________________________ Snippet Tags ______________________________________
