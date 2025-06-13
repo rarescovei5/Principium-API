@@ -73,7 +73,6 @@ pub async fn login(
             .json(serde_json::json!({ "error": "Missing required fields" }));
     }
 
-    // 1) Fetch only id & hash
     let row = sqlx::query!(
         "SELECT id, password_hash FROM users WHERE email = $1",
         body.email
@@ -93,7 +92,6 @@ pub async fn login(
         }
     };
 
-    // 2) Verify password
     match verify(&body.password, &row.password_hash) {
         Ok(true) => (),
         Ok(false) => {
@@ -106,7 +104,6 @@ pub async fn login(
         }
     }
 
-    // 3) Prepare tokens
     let user_id = row.id;
     let now = Utc::now();
     let access_exp = now + ChronoDuration::minutes(15);
@@ -133,7 +130,6 @@ pub async fn login(
         Err(_) => return HttpResponse::InternalServerError().json(serde_json::json!({ "error": "Refresh token creation failed" }))
     };
 
-    // 4) Metadata
     let user_agent = req.headers()
         .get("User-Agent")
         .and_then(|h| h.to_str().ok())
@@ -143,13 +139,11 @@ pub async fn login(
         .realip_remote_addr()
         .map(str::to_owned);
 
-    // 5) Device ID logic
     let device_id = match req.cookie("device_id").map(|c| c.value().to_string()) {
         Some(id) => id,
         None => Uuid::new_v4().to_string(),
     };
 
-    // 6) Try to rotate "existing" session on current browser
     let updated = sqlx::query!(
         r#"
         UPDATE user_sessions
@@ -199,7 +193,6 @@ pub async fn login(
         _ => {}
     }
 
-    // 7) Set cookies
     let refresh_cookie = Cookie::build("jwt", refresh_token.clone())
         .http_only(true)
         .same_site(SameSite::None)
@@ -227,7 +220,6 @@ pub async fn logout(
     app_state: web::Data<AppState>,
     req: HttpRequest
 ) -> impl Responder {
-    // 1) Extract refresh-token cookie
     let refresh_token = if let Some(c) = req.cookie("jwt") {
         c.value().to_string()
     } else {
@@ -235,7 +227,6 @@ pub async fn logout(
             .json(serde_json::json!({ "error": "No cookie" }));
     };
 
-    // 2) Decode JWT to get user_id
     let claims = match decode::<Claims>(
         &refresh_token,
         &DecodingKey::from_secret(app_state.jwt_refresh_secret.as_bytes()),
@@ -249,7 +240,6 @@ pub async fn logout(
     };
     let user_id = claims.user.id;
 
-    // 3) Read device_id cookie
     let device_id = if let Some(c) = req.cookie("device_id") {
         c.value().to_string()
     } else {
@@ -257,7 +247,6 @@ pub async fn logout(
             .json(serde_json::json!({ "error": "No device_id cookie" }));
     };
 
-    // 4) Revoke only this device’s session
     let res = sqlx::query!(
         r#"
         UPDATE user_sessions
@@ -276,7 +265,6 @@ pub async fn logout(
             .json(serde_json::json!({ "error": "Failed to revoke session" }));
     }
 
-    // 5) Clear both cookies
     let mut clear_jwt = Cookie::build("jwt", "")
         .http_only(true)
         .same_site(SameSite::None)
@@ -306,7 +294,6 @@ pub async fn refresh(
     app_state: web::Data<AppState>,
     req: HttpRequest
 ) -> impl Responder {
-    // 1) Extract cookies
     let refresh_token = if let Some(c) = req.cookie("jwt") {
         c.value().to_string()
     } else {
@@ -320,7 +307,6 @@ pub async fn refresh(
             .json(serde_json::json!({ "error": "No device_id cookie" }));
     };
 
-    // 2) Decode JWT to get user_id
     let token_data = match decode::<Claims>(
         &refresh_token,
         &DecodingKey::from_secret(app_state.jwt_refresh_secret.as_bytes()),
@@ -334,7 +320,6 @@ pub async fn refresh(
     };
     let user_id = token_data.claims.user.id;
 
-    // 3) Fetch the session row for this user + device + token
     let session = match sqlx::query_as!(
         UserSession,
         r#"
@@ -363,7 +348,6 @@ pub async fn refresh(
         }
     };
 
-    // 4) Issue new access token
     let exp = Utc::now() + ChronoDuration::minutes(15);
     let claims = Claims { exp: exp.timestamp() as usize, user: UserData { id: session.user_id } };
 

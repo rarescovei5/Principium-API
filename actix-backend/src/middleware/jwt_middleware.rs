@@ -1,6 +1,3 @@
-// Middleware to verify JWT tokens in incoming requests.
-// It extracts the token, validates it, and attaches user claims to the request.
-
 use std::{ future::{ready, Ready}};
 
 use actix_web::{dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform}, error::ErrorUnauthorized, web, Error, HttpMessage};

@@ -4,7 +4,7 @@ use uuid::Uuid;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
     pub user: UserData,
-    pub exp: usize, // Expiration timestamp
+    pub exp: usize,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
